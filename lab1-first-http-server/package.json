@@ -1,0 +1,20 @@
+{
+  "name": "lab1-first-http-server",
+  "version": "1.0.0",
+  "description": "Лабораторная работа №1 — Вариант 4 (Node.js + Express)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["lab1", "express", "backend"],
+  "author": "Student",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

@@ -1,0 +1,22 @@
+# Команды для тестирования эндпоинтов (Вариант 4)
+
+# 1. Корневой текстовый эндпоинт
+curl http://localhost:3000/
+
+# 2. Список книг
+curl http://localhost:3000/api/books
+
+# 3. Список авторов
+curl http://localhost:3000/api/authors
+
+# 4. Книга по ID (параметр)
+curl http://localhost:3000/api/books/1
+curl http://localhost:3000/api/books/5
+curl http://localhost:3000/api/books/42
+
+# 5. Health (базовый уровень)
+curl http://localhost:3000/api/health
+
+# 6. 404 Not Found
+curl -i http://localhost:3000/unknown
+curl -i http://localhost:3000/api/nonexistent
