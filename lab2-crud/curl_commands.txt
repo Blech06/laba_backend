@@ -1,0 +1,53 @@
+# ===== Лабораторная работа №2 — Вариант 4 (Книги) =====
+
+# 1. Список всех книг
+curl http://localhost:3000/books
+
+# 2. Поиск
+curl "http://localhost:3000/books?search=война"
+
+# 3. Сортировка + пагинация
+curl "http://localhost:3000/books?sort=year&order=desc&page=1&limit=3"
+
+# 4. Одна книга
+curl http://localhost:3000/books/2
+
+# 5. Статистика
+curl http://localhost:3000/books/stats
+
+# 6. Связанные книги
+curl http://localhost:3000/books/1/related
+
+# 7. Создать книгу
+curl -X POST http://localhost:3000/books \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Идиот","author":"Фёдор Достоевский","year":1869,"genre":"роман"}'
+
+# 8. Массовое создание
+curl -X POST http://localhost:3000/books/bulk \
+  -H "Content-Type: application/json" \
+  -d '[{"title":"Книга А","author":"Автор А","year":2001,"genre":"детектив"},{"title":"Книга Б","author":"Автор Б","year":2015,"genre":"фантастика"}]'
+
+# 9. Полное обновление
+curl -X PUT http://localhost:3000/books/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Война и мир (изд. 2)","author":"Лев Толстой","year":1869,"genre":"роман"}'
+
+# 10. Частичное обновление
+curl -X PATCH http://localhost:3000/books/1 \
+  -H "Content-Type: application/json" \
+  -d '{"year":1873}'
+
+# 11. Удалить одну (ожидается 204)
+curl -i -X DELETE http://localhost:3000/books/5
+
+# 12. Удалить все
+curl -X DELETE http://localhost:3000/books
+
+# 13. 404
+curl -i http://localhost:3000/books/999
+
+# 14. 400 (валидация)
+curl -i -X POST http://localhost:3000/books \
+  -H "Content-Type: application/json" \
+  -d '{"title":""}'
