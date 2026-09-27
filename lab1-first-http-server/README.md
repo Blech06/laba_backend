@@ -90,7 +90,7 @@ npm run dev
 
 Реализован **повышенный уровень**, который полностью покрывает требования базового и среднего уровней.
 
-### Требования варианта 4 (повышенный)
+### Требования варианта 4 
 
 | Требование | Реализация |
 |------------|------------|
@@ -265,12 +265,3 @@ Flask: `python app.py` (с `debug=True` для авто-перезапуска).
 Освоены концепции эндпоинтов, маршрутизации, JSON-ответов и автоматического перезапуска. Трудности возникли минимальные — в основном при настройке `package.json` и понимании порядка middleware (логирование должно идти до маршрутов, 404 — после).
 
 ---
-
-## Список использованных источников
-
-1. **Node.js официальная документация** — https://nodejs.org/en/docs/
-2. **Express официальная документация** — https://expressjs.com/
-3. **Nodemon** — https://nodemon.io/
-4. **HTTP протокол (MDN)** — https://developer.mozilla.org/ru/docs/Web/HTTP
-5. **JSON (MDN)** — https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/JSON
-6. **REST API basics** — https://www.geeksforgeeks.org/node-js/explain-the-concept-of-restful-apis-in-express
