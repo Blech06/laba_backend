@@ -160,44 +160,6 @@ app.listen(port, () => {
 });
 ```
 
-### Проверка эндпоинтов
-
-| URL | Ожидаемый результат |
-|-----|---------------------|
-| `http://localhost:3000/` | `Welcome!` (текст) |
-| `http://localhost:3000/api/books` | JSON-массив книг |
-| `http://localhost:3000/api/authors` | JSON-массив авторов |
-| `http://localhost:3000/api/books/3` | JSON с `requestedId: 3` |
-| `http://localhost:3000/api/books/42` | JSON с `requestedId: 42` |
-| `http://localhost:3000/api/health` | `{"status":"healthy","uptime":"100s"}` |
-| `http://localhost:3000/anything` | `{"error":"Not Found"}` (статус 404) |
-
-### Команды для тестирования (curl)
-
-```bash
-# Корневой маршрут
-curl http://localhost:3000/
-
-# Список книг
-curl http://localhost:3000/api/books
-
-# Список авторов
-curl http://localhost:3000/api/authors
-
-# Книга по ID
-curl http://localhost:3000/api/books/5
-
-# Health (базовый)
-curl http://localhost:3000/api/health
-
-# 404
-curl -i http://localhost:3000/unknown
-```
-
-Файл с командами также сохранён в `curl_commands.txt`.
-
----
-
 ## Контрольные вопросы
 
 **1. Что такое клиент-серверная архитектура?**  
