@@ -36,17 +36,7 @@
 
 ## Выполнение практического примера
 
-### 1. Создание проекта и установка зависимостей
-
-```bash
-mkdir lab1-first-http-server
-cd lab1-first-http-server
-npm init -y
-npm install express
-npm install --save-dev nodemon
-```
-
-### 2. Настройка package.json
+### 1. Настройка package.json
 
 Добавлен скрипт:
 ```json
@@ -56,7 +46,7 @@ npm install --save-dev nodemon
 }
 ```
 
-### 3. Код сервера (базовый пример из методички)
+### 2. Код сервера (базовый пример из методички)
 
 ```javascript
 const express = require('express');
@@ -74,12 +64,6 @@ app.get('/api/status', (req, res) => {
 app.listen(port, () => {
     console.log(`Сервер запущен на http://localhost:${port}`);
 });
-```
-
-### 4. Запуск
-
-```bash
-npm run dev
 ```
 
 Сервер стартует на `http://localhost:3000`. При изменении файла `app.js` nodemon автоматически перезапускает процесс.
