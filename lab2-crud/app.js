@@ -8,7 +8,6 @@ const port = 3000;
 // ========== Middleware ==========
 app.use(express.json());
 
-// Логирование в консоль + в файл access.log (продвинутый уровень)
 const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
 
 app.use((req, res, next) => {
@@ -19,8 +18,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ========== Хранилище в памяти (Вариант 4 — Книги) ==========
-// Поля: id, title, author + year, genre (средний уровень)
+
 let books = [
     { id: 1, title: 'Война и мир', author: 'Лев Толстой', year: 1869, genre: 'роман' },
     { id: 2, title: 'Преступление и наказание', author: 'Фёдор Достоевский', year: 1866, genre: 'роман' },
@@ -30,7 +28,6 @@ let books = [
 ];
 let nextId = 6;
 
-// ========== Вспомогательные функции ==========
 function findBookIndex(id) {
     return books.findIndex(b => b.id === id);
 }
@@ -67,9 +64,7 @@ function validateBook(body, isPartial = false) {
     return errors;
 }
 
-// ========== CRUD + дополнительные эндпоинты ==========
 
-// GET /books — список с поиском, сортировкой и пагинацией
 app.get('/books', (req, res) => {
     let result = [...books];
 
@@ -113,7 +108,6 @@ app.get('/books', (req, res) => {
     });
 });
 
-// GET /books/stats — статистика (продвинутый)
 app.get('/books/stats', (req, res) => {
     const byGenre = {};
     books.forEach(b => {
@@ -134,7 +128,6 @@ app.get('/books/stats', (req, res) => {
     });
 });
 
-// GET /books/:id — один элемент
 app.get('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -147,7 +140,6 @@ app.get('/books/:id', (req, res) => {
     res.json(book);
 });
 
-// GET /books/:id/related — связанные по автору (продвинутый)
 app.get('/books/:id/related', (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -166,7 +158,6 @@ app.get('/books/:id/related', (req, res) => {
     });
 });
 
-// POST /books — создание
 app.post('/books', (req, res) => {
     const errors = validateBook(req.body, false);
     if (errors.length) {
@@ -185,7 +176,6 @@ app.post('/books', (req, res) => {
     res.status(201).json(newBook);
 });
 
-// POST /books/bulk — массовое создание (продвинутый)
 app.post('/books/bulk', (req, res) => {
     if (!Array.isArray(req.body) || req.body.length === 0) {
         return res.status(400).json({ error: 'Ожидается непустой массив книг' });
@@ -219,7 +209,6 @@ app.post('/books/bulk', (req, res) => {
     });
 });
 
-// PUT /books/:id — полное обновление
 app.put('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -246,7 +235,6 @@ app.put('/books/:id', (req, res) => {
     res.json(books[index]);
 });
 
-// PATCH /books/:id — частичное обновление (продвинутый)
 app.patch('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -271,7 +259,6 @@ app.patch('/books/:id', (req, res) => {
     res.json(book);
 });
 
-// DELETE /books/:id — удаление одного
 app.delete('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -283,30 +270,26 @@ app.delete('/books/:id', (req, res) => {
     }
 
     books.splice(index, 1);
-    // 204 No Content (средний/продвинутый уровень)
+
     res.status(204).send();
 });
 
-// DELETE /books — удалить все (продвинутый)
 app.delete('/books', (req, res) => {
     const count = books.length;
     books = [];
     res.json({ message: 'Все книги удалены', deletedCount: count });
 });
 
-// ========== 404 ==========
 app.use((req, res) => {
     res.status(404).json({ error: 'Маршрут не найден' });
 });
 
-// ========== Глобальный обработчик ошибок 500 (продвинутый) ==========
 app.use((err, req, res, next) => {
     console.error('Internal error:', err);
     logStream.write(`[ERROR] ${new Date().toISOString()} ${err.stack}\n`);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
-// ========== Запуск ==========
 app.listen(port, () => {
     console.log(`Сервер запущен на http://localhost:${port}`);
     console.log('Сущность: Книги (вариант 4). Уровень: продвинутый.');
