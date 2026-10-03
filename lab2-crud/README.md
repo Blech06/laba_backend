@@ -51,403 +51,300 @@ npm run dev
 ### Код сервера
 ```javascript
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+
 const app = express();
 const port = 3000;
 
-// Middleware для парсинга JSON из тела запроса
+// ========== Middleware ==========
 app.use(express.json());
 
-// Middleware для логирования запросов
+const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
+
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    const timestamp = new Date().toISOString();
+    const logLine = `[${timestamp}] ${req.method} ${req.url}\n`;
+    console.log(logLine.trim());
+    logStream.write(logLine);
     next();
 });
 
-// Хранилище данных в памяти (поля platform и rating для среднего уровня)
-let games = [
-    { id: 1, title: 'Dark Souls', genre: 'action-RPG', platform: 'PC, PlayStation 3', rating: 8.5 },
-    { id: 2, title: 'Warcraft 3', genre: 'RTS', platform: 'PC', rating: 9.1 },
-    { id: 3, title: 'Call of Duty 4', genre: 'shooter', platform: 'PC, PlayStation 3, XBOX 360', rating: 9.2 }
+
+let books = [
+    { id: 1, title: 'Война и мир', author: 'Лев Толстой', year: 1869, genre: 'роман' },
+    { id: 2, title: 'Преступление и наказание', author: 'Фёдор Достоевский', year: 1866, genre: 'роман' },
+    { id: 3, title: 'Мастер и Маргарита', author: 'Михаил Булгаков', year: 1967, genre: 'фантастика' },
+    { id: 4, title: 'Анна Каренина', author: 'Лев Толстой', year: 1877, genre: 'роман' },
+    { id: 5, title: 'Собачье сердце', author: 'Михаил Булгаков', year: 1925, genre: 'повесть' }
 ];
+let nextId = 6;
 
-// Счётчик для генерации новых ID
-let nextId = games.length;
+function findBookIndex(id) {
+    return books.findIndex(b => b.id === id);
+}
 
-// Настройки и вспомогательные функции для GET /games (средний и продвинутый уровень)
- 
-const ALLOWED_SORT_FIELDS = ['id', 'title', 'genre', 'platform', 'rating'];    
-const DEFAULT_PAGE = 1;                                                         
-const DEFAULT_LIMIT = 10;                                                       
-const MAX_LIMIT = 100;
-const MAX_BULK = 100;                                                          
-
-// Проверка полей для PATCH (продвинутый уровень)
-const FIELD_VALIDATORS = {
-    title:    { check: v => typeof v === 'string' && v.trim() !== '',      message: 'title должен быть непустой строкой' },
-    genre:    { check: v => typeof v === 'string',                         message: 'genre должен быть строкой' },
-    platform: { check: v => typeof v === 'string',                         message: 'platform должен быть строкой' },
-    rating:   { check: v => typeof v === 'number' && Number.isFinite(v),   message: 'rating должен быть числом' }
-};
-
-// Проверка валидности полей
-const validateFields = (data) => {
+function validateBook(body, isPartial = false) {
     const errors = [];
-    for (const [field, { check, message }] of Object.entries(FIELD_VALIDATORS)) {
-        if (data[field] !== undefined && !check(data[field])) {
-            errors.push(message);
+
+    if (!isPartial) {
+        if (!body.title || typeof body.title !== 'string' || body.title.trim() === '') {
+            errors.push('Поле title обязательно и должно быть непустой строкой');
+        }
+        if (!body.author || typeof body.author !== 'string' || body.author.trim() === '') {
+            errors.push('Поле author обязательно и должно быть непустой строкой');
+        }
+    } else {
+        if (body.title !== undefined && (typeof body.title !== 'string' || body.title.trim() === '')) {
+            errors.push('Поле title должно быть непустой строкой');
+        }
+        if (body.author !== undefined && (typeof body.author !== 'string' || body.author.trim() === '')) {
+            errors.push('Поле author должно быть непустой строкой');
         }
     }
+
+    if (body.year !== undefined) {
+        if (typeof body.year !== 'number' || !Number.isInteger(body.year) || body.year < 0 || body.year > 2100) {
+            errors.push('Поле year должно быть целым числом от 0 до 2100');
+        }
+    }
+
+    if (body.genre !== undefined && (typeof body.genre !== 'string' || body.genre.trim() === '')) {
+        errors.push('Поле genre должно быть непустой строкой');
+    }
+
     return errors;
-};
+}
 
-// Проверка query-строки пользователя (средний уровень)
-// Разбирает положительное целое из query-параметра.
-// Возвращает defaultValue, если параметр не передан, и null, если значение некорректно.
-const parsePositiveInt = (value, defaultValue) => {
-    if (value === undefined) return defaultValue;
-    if (typeof value !== 'string') return null;                                 
-    const n = Number(value);
-    return Number.isInteger(n) && n > 0 ? n : null;
-};
 
-// Проверка на простой объект (не нулевой, является объектом и не является массивом)
-const isPlainObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+app.get('/books', (req, res) => {
+    let result = [...books];
 
-// Платформы, на которых есть игра
-const platformsOf = (game) =>
-    typeof game.platform === 'string'
-        ? game.platform.split(',').map(p => p.trim()).filter(Boolean)
-        : [];
-
-// CRUD-операции
-
-// GET
-app.get('/games', (req, res) => {
-    // Реализация дополнительных эндпоинтов для среднего уровня
-
-    // query - часть URL после знака ?, в которой клиент передаёт
-    // дополнительные параметры в виде пар ключ=значение.
-    // Express разбирает эту строку и кладёт результат в req.query как обычный JS-объект.
-    const { search, sort, order = 'asc' } = req.query;         
-
-    // Валидация параметров
-    const page = parsePositiveInt(req.query.page, DEFAULT_PAGE);
-    if (page === null) {
-        return res.status(400).json({ error: 'Параметр page должен быть положительным целым числом' });
+    // Поиск по title
+    if (req.query.search) {
+        const q = req.query.search.toLowerCase();
+        result = result.filter(b => b.title.toLowerCase().includes(q));
     }
-    
-    const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT);
-    if (limit === null || limit > MAX_LIMIT) {
-        return res.status(400).json({
-            error: `Параметр limit должен быть целым числом от 1 до ${MAX_LIMIT}`
-        });
-    }
- 
-    // 1. Поиск по title 
-    let result = [...games];                
- 
-    if (search !== undefined) {
-        const query = search.trim().toLowerCase();
-        if (query) {
-            result = result.filter(game => game.title.toLowerCase().includes(query));
+
+    // Сортировка
+    if (req.query.sort) {
+        const field = req.query.sort;
+        const order = (req.query.order || 'asc').toLowerCase();
+        const allowed = ['id', 'title', 'author', 'year', 'genre'];
+        if (allowed.includes(field)) {
+            result.sort((a, b) => {
+                let valA = a[field];
+                let valB = b[field];
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                if (valA < valB) return order === 'desc' ? 1 : -1;
+                if (valA > valB) return order === 'desc' ? -1 : 1;
+                return 0;
+            });
         }
     }
- 
-    // 2. Сортировка по рейтингу 
-    if (sort !== undefined) {
-        const direction = (order === 'desc') ? -1 : 1;
- 
-        result.sort((a, b) => {
-            const x = a[sort];
-            const y = b[sort];
- 
-            // Отсутствующие значения всегда в конце, независимо от направления
-            if (x == null && y == null) return 0;
-            if (x == null) return 1;
-            if (y == null) return -1;
- 
-            if (typeof x === 'number' && typeof y === 'number') {
-                return (x - y) * direction;
-            }
-            return String(x).localeCompare(String(y), 'ru') * direction;
-        });
-    }
- 
-    // 3. Пагинация (после поиска и сортировки)
+
+    // Пагинация
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 10));
     const total = result.length;
-    const totalPages = Math.ceil(total / limit);
     const start = (page - 1) * limit;
-    const paged = result.slice(start, start + limit);
- 
+    const paginated = result.slice(start, start + limit);
+
     res.json({
-        total: total,                       
-        count: paged.length,                
-        page: page,
-        limit: limit,
-        totalPages: totalPages,
-        games: paged
+        count: total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        books: paginated
     });
 });
 
-// GET STATS (продвинутый уровень)
-app.get('/games/stats', (req, res) => {
-    const rated = games.filter(g => Number.isFinite(g.rating));
-    const sum = rated.reduce((acc, g) => acc + g.rating, 0);
- 
+app.get('/books/stats', (req, res) => {
+    const byGenre = {};
+    books.forEach(b => {
+        byGenre[b.genre] = (byGenre[b.genre] || 0) + 1;
+    });
+
+    const years = books.map(b => b.year).filter(y => typeof y === 'number');
+    const avgYear = years.length
+        ? Math.round(years.reduce((s, y) => s + y, 0) / years.length)
+        : null;
+
     res.json({
-        count: games.length,
-        averageRating: rated.length ? Math.round((sum / rated.length) * 100) / 100 : null
+        total: books.length,
+        byGenre,
+        averageYear: avgYear,
+        oldest: years.length ? Math.min(...years) : null,
+        newest: years.length ? Math.max(...years) : null
     });
 });
 
-// GET RELATED (продвинутый уровень)                         
-app.get('/games/:id/related', (req, res) => {
+app.get('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    const item = games.find(i => i.id === id);
- 
-    if (!item) {
-        return res.status(404).json({ error: 'Элемент не найден' });
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID должен быть числом' });
     }
- 
-    const target = platformsOf(item);
- 
-    const related = games
-        .filter(g => g.id !== id) 
+    const book = books.find(b => b.id === id);
+    if (!book) {
+        return res.status(404).json({ error: 'Книга не найдена' });
+    }
+    res.json(book);
+});
 
-        // .map получает платформы игры g и приводит каждую к нижнему регистру 
-        // (чтобы сравнение было нечувствительно к регистру)          
-        .map(g => {                                                              
-            const keys = platformsOf(g).map(p => p.toLowerCase());                 
-            const shared = target.filter(p => keys.includes(p.toLowerCase()));        
-            return { game: g, shared };
-        })
-
-        // .filter оставляет только те игры, у которых есть хотя бы одна общая платформа
-        .filter(x => x.shared.length > 0)                                           
-        .map(x => ({ ...x.game, sharedPlatforms: x.shared }));                     
- 
+app.get('/books/:id/related', (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID должен быть числом' });
+    }
+    const book = books.find(b => b.id === id);
+    if (!book) {
+        return res.status(404).json({ error: 'Книга не найдена' });
+    }
+    const related = books.filter(b => b.author === book.author && b.id !== id);
     res.json({
-        id: item.id,
-        title: item.title,
-        platforms: target,
-        count: related.length,
-        related: related
+        bookId: id,
+        author: book.author,
+        relatedCount: related.length,
+        related
     });
 });
 
-// GET ID 
-app.get('/games/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const item = games.find(i => i.id === id);
-
-    if (!item) {
-        return res.status(404).json({ error: 'Элемент не найден' });
+app.post('/books', (req, res) => {
+    const errors = validateBook(req.body, false);
+    if (errors.length) {
+        return res.status(400).json({ error: 'Ошибка валидации', details: errors });
     }
 
-    res.json(item);
-});
-
-// POST
-app.post('/games', (req, res) => {
-    const { title, genre, platform, rating } = req.body;
-
-    // Валидация: обязательные поля
-    if (typeof title !== "string" || title.trim() === "") {
-        return res.status(400).json({
-            error: "Поле title обязательно и должно быть непустой строкой"
-        });
-    }
-
-    if (typeof rating !== "number" || !Number.isFinite(rating)) {
-        return res.status(400).json({
-            error: "Поле rating обязательно и должно быть числом"
-        });
-    }
-
-    // Создание нового элемента
-    const newItem = {
-        id: ++nextId,
-        title: title,
-        genre: genre,
-        platform: platform,
-        rating: rating
-    };
-    games.push(newItem);
-
-    // 201 Created — ресурс создан
-    res.status(201).json(newItem);
-});
-
-// POST BULK (продвинутый уровень)
-app.post('/games/bulk', (req, res) => {
-    // Запись req.body?.games означает, что если req.body не null и не undefined, то 
-    // взять его свойство games, иначе вернуть undefined и не выдавать ошибку.
-    const items = Array.isArray(req.body) ? req.body : req.body?.games;
- 
-    if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({
-            error: 'Ожидается непустой массив игр (в теле запроса или в поле games)'
-        });
-    }
- 
-    if (items.length > MAX_BULK) {
-        return res.status(400).json({
-            error: `За один запрос можно добавить не более ${MAX_BULK} элементов`
-        });
-    }
- 
-    const errors = [];
-    items.forEach((item, index) => {
-        if (!isPlainObject(item)) {
-            errors.push({ index, errors: ['элемент должен быть объектом'] });
-            return;
-        }
- 
-        const itemErrors = validateFields(item);
-        if (item.title === undefined) itemErrors.push('title обязателен');
-        if (item.rating === undefined) itemErrors.push('rating обязателен');
- 
-        if (itemErrors.length > 0) {
-            errors.push({ index, errors: itemErrors });
-        }
-    });
- 
-    if (errors.length > 0) {
-        return res.status(400).json({
-            error: 'Ошибка валидации, ни один элемент не добавлен',
-            details: errors
-        });
-    }
- 
-    // Копируем только известные поля, чтобы клиент не мог подставить свой id
-    const created = items.map(({ title, genre, platform, rating }) => ({
-        id: ++nextId,
-        title,
-        genre,
-        platform,
-        rating
-    }));
- 
-    games.push(...created);
- 
-    res.status(201).json({ count: created.length, games: created });
-});
-
-// PUT
-app.put('/games/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = games.findIndex(i => i.id === id);
-
-    if (index === -1) {
-        return res.status(404).json({ error: 'Элемент не найден' });
-    }
-
-    const { title, genre, platform, rating } = req.body;
-
-    // Полное обновление
-    games[index] = {
-        id: id,
-        title: title || games[index].title,
-        genre: genre || games[index].genre,
-        platform: platform || games[index].platform,
-        rating: rating || games[index].rating
+    const newBook = {
+        id: nextId++,
+        title: req.body.title.trim(),
+        author: req.body.author.trim(),
+        year: req.body.year !== undefined ? req.body.year : null,
+        genre: req.body.genre ? req.body.genre.trim() : 'не указан'
     };
 
-    res.json(games[index]);
+    books.push(newBook);
+    res.status(201).json(newBook);
 });
 
-// PATCH ID (продвинутый уровень)
-app.patch('/games/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = games.findIndex(i => i.id === id);
- 
-    if (index === -1) {
-        return res.status(404).json({ error: 'Элемент не найден' });
+app.post('/books/bulk', (req, res) => {
+    if (!Array.isArray(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: 'Ожидается непустой массив книг' });
     }
- 
-    const body = req.body;
- 
-    if (!isPlainObject(body)) {
-        return res.status(400).json({ error: 'Тело запроса должно быть JSON-объектом' });
-    }
- 
-    const updates = {};
-    for (const field of Object.keys(FIELD_VALIDATORS)) {                                            
-        if (body[field] !== undefined) {
-            updates[field] = body[field];
+
+    const created = [];
+    const failed = [];
+
+    req.body.forEach((item, index) => {
+        const errors = validateBook(item, false);
+        if (errors.length) {
+            failed.push({ index, errors });
+        } else {
+            const newBook = {
+                id: nextId++,
+                title: item.title.trim(),
+                author: item.author.trim(),
+                year: item.year !== undefined ? item.year : null,
+                genre: item.genre ? item.genre.trim() : 'не указан'
+            };
+            books.push(newBook);
+            created.push(newBook);
         }
-    }
- 
-    if (Object.keys(updates).length === 0) {
-        return res.status(400).json({
-            error: 'Не передано ни одного поля для обновления'
-        });
-    }
- 
-    const errors = validateFields(updates);
-    if (errors.length > 0) {
-        return res.status(400).json({ error: 'Некорректные данные', details: errors });
-    }
- 
-    // Перезапись только переданных полей
-    Object.assign(games[index], updates);                                                       
- 
-    res.json(games[index]);
+    });
+
+    res.status(201).json({
+        createdCount: created.length,
+        failedCount: failed.length,
+        created,
+        failed
+    });
 });
 
-// DELETE (продвинутый уровень)
-app.delete('/games', (req, res) => {
-    const deletedCount = games.length;
-    games = [];
-
-    res.sendStatus(204);
-})
-
-// DELETE ID
-app.delete('/games/:id', (req, res) => {
+app.put('/books/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    const index = games.findIndex(i => i.id === id);
-
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID должен быть числом' });
+    }
+    const index = findBookIndex(id);
     if (index === -1) {
-        return res.status(404).json({ error: 'Элемент не найден' });
-    }   
+        return res.status(404).json({ error: 'Книга не найдена' });
+    }
 
-    const deletedItem = games.splice(index, 1)[0];
+    const errors = validateBook(req.body, false);
+    if (errors.length) {
+        return res.status(400).json({ error: 'Ошибка валидации', details: errors });
+    }
 
-    // 204 No Content с удалённым элементом
-    return res.sendStatus(204);
+    books[index] = {
+        id,
+        title: req.body.title.trim(),
+        author: req.body.author.trim(),
+        year: req.body.year !== undefined ? req.body.year : books[index].year,
+        genre: req.body.genre ? req.body.genre.trim() : books[index].genre
+    };
+
+    res.json(books[index]);
 });
 
-// 404 Not Found
+app.patch('/books/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID должен быть числом' });
+    }
+    const index = findBookIndex(id);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Книга не найдена' });
+    }
+
+    const errors = validateBook(req.body, true);
+    if (errors.length) {
+        return res.status(400).json({ error: 'Ошибка валидации', details: errors });
+    }
+
+    const book = books[index];
+    if (req.body.title !== undefined) book.title = req.body.title.trim();
+    if (req.body.author !== undefined) book.author = req.body.author.trim();
+    if (req.body.year !== undefined) book.year = req.body.year;
+    if (req.body.genre !== undefined) book.genre = req.body.genre.trim();
+
+    res.json(book);
+});
+
+app.delete('/books/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID должен быть числом' });
+    }
+    const index = findBookIndex(id);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Книга не найдена' });
+    }
+
+    books.splice(index, 1);
+
+    res.status(204).send();
+});
+
+app.delete('/books', (req, res) => {
+    const count = books.length;
+    books = [];
+    res.json({ message: 'Все книги удалены', deletedCount: count });
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: 'Маршрут не найден' });
 });
 
-// Обработчик ошибки 500 (продвинутый уровень)
 app.use((err, req, res, next) => {
-    // Если ответ уже начал отправляться, отдаём ошибку стандартному обработчику Express
-    if (res.headersSent) {
-        return next(err);
-    }
-
-    if (err.type === 'entity.parse.failed') {
-        return res.status(400).json({ error: 'Некорректный JSON в теле запроса' });
-    }
- 
-    const status = err.status || err.statusCode;
-    if (status >= 400 && status < 500) {
-        return res.status(status).json({ error: err.message });
-    }
- 
-    // Всё остальное — непредвиденная ошибка сервера
-    console.error(`[${new Date().toISOString()}] ${req.method} ${req.url}`, err);
- 
+    console.error('Internal error:', err);
+    logStream.write(`[ERROR] ${new Date().toISOString()} ${err.stack}\n`);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
-// Сообщение о запуске сервера
 app.listen(port, () => {
     console.log(`Сервер запущен на http://localhost:${port}`);
+    console.log('Сущность: Книги (вариант 4). Уровень: продвинутый.');
 });
 ```
 
