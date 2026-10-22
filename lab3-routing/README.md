@@ -157,10 +157,3 @@ URL, отражающие иерархию: `/books/:id/chapters`, `/authors/:au
 Реализована гибкая маршрутизация для сущности «Книги»: параметры пути, query (поиск, сортировка, фильтр, пагинация), вложенные ресурсы (главы, книги автора), множественные params, stats, логирование с IP, валидация 400 и обработка 404/500. Освоена разница между `req.params`, `req.query` и важность порядка маршрутов.
 
 ---
-
-## Источники
-
-1. Express Routing — https://expressjs.com/en/guide/routing.html  
-2. req.params / req.query — https://expressjs.com/en/4x/api.html#req.params  
-3. HTTP Status Codes (MDN) — https://developer.mozilla.org/ru/docs/Web/HTTP/Status  
-4. REST nested resources — https://restfulapi.net/resource-naming/
