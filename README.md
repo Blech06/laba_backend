@@ -11,3 +11,4 @@
 |--------|-------|----------|
 | [ЛР №1](./lab1-first-http-server/README.md) | `lab1-first-http-server/` | Настройка среды разработки и первый HTTP-сервер |
 | [ЛР №2](./lab2-crud/README.md) | `lab2-crud/` | HTTP-методы: обработка GET, POST, PUT, DELETE |
+| [ЛР №3](./lab3-routing/README.md) | `lab3-routing/` | Маршрутизация, параметры пути и query-параметры |
