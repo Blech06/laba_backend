@@ -1,0 +1,16 @@
+{
+  "name": "lab3-routing-books",
+  "version": "1.0.0",
+  "description": "ЛР №3 — Маршрутизация, params и query (Вариант 4, Книги)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

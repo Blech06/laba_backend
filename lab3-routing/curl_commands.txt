@@ -1,0 +1,59 @@
+# ===== ЛР №3 — Вариант 4 (Книги) =====
+
+# --- Базовый ---
+# Все книги
+curl http://localhost:3000/books
+
+# Одна книга
+curl http://localhost:3000/books/1
+
+# 400 — нечисловой id
+curl -i http://localhost:3000/books/abc
+
+# 404 — нет книги
+curl -i http://localhost:3000/books/999
+
+# Вложенный ресурс: главы книги
+curl http://localhost:3000/books/1/chapters
+
+# Категория: книги автора
+curl "http://localhost:3000/authors/%D0%9B%D0%B5%D0%B2%20%D0%A2%D0%BE%D0%BB%D1%81%D1%82%D0%BE%D0%B9/books"
+# или проще латиницей/коротким именем если кодируете:
+curl --get "http://localhost:3000/authors/Лев Толстой/books"
+
+# --- Средний (query) ---
+# Поиск
+curl "http://localhost:3000/books?search=мир"
+
+# Сортировка
+curl "http://localhost:3000/books?sort=year&order=desc"
+
+# Пагинация
+curl "http://localhost:3000/books?page=1&limit=3"
+
+# Фильтр
+curl "http://localhost:3000/books?filter=genre:роман"
+curl "http://localhost:3000/books?filter=year:1869"
+
+# Комбинация
+curl "http://localhost:3000/books?search=а&sort=year&order=asc&page=1&limit=2&filter=genre:роман"
+
+# 400 — неверный sort
+curl -i "http://localhost:3000/books?sort=price"
+
+# 400 — неверный order
+curl -i "http://localhost:3000/books?sort=year&order=up"
+
+# --- Продвинутый ---
+# Статистика
+curl http://localhost:3000/books/stats
+
+# Множественные params: глава книги
+curl http://localhost:3000/books/1/chapters/2
+
+# Автор + id книги
+curl --get "http://localhost:3000/authors/Лев Толстой/books/1"
+curl -i --get "http://localhost:3000/authors/Лев Толстой/books/2"
+
+# Wildcard 404
+curl -i http://localhost:3000/unknown/path
